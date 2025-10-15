@@ -1,0 +1,85 @@
+name: Generate Countdown
+
+on:
+  schedule:
+    - cron: "0 0 * * *"  # every day at midnight UTC
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Generate countdown SVG
+        run: |
+          mkdir -p dist
+          node - <<'EOF'
+          const fs = require('fs');
+          const now = new Date();
+
+          //events
+          const events = [
+            { name: "Halloween", month: 10, day: 31 },
+            { name: "Christmas", month: 12, day: 25 },
+            { name: "New Year's Day", month: 1, day: 1 },
+            { name: "My Birthday", month: 1, day: 22 }
+          ];
+
+          function getNextDate(ev, base) {
+            let y = base.getFullYear();
+            let d = new Date(y, ev.month - 1, ev.day);
+            if (d <= base) d = new Date(y + 1, ev.month - 1, ev.day);
+            return d;
+          }
+
+          // pick nearest event
+          let nearest = null;
+          let minDiff = Infinity;
+          for (const ev of events) {
+            const d = getNextDate(ev, now);
+            const diff = d - now;
+            if (diff < minDiff) {
+              minDiff = diff;
+              nearest = { name: ev.name, date: d };
+            }
+          }
+
+          // compute remaining time
+          let diff = nearest.date - now;
+          const days = Math.floor(diff / (1000*60*60*24));
+          diff -= days * (1000*60*60*24);
+          const hours = Math.floor(diff / (1000*60*60));
+          diff -= hours * (1000*60*60);
+          const minutes = Math.floor(diff / (1000*60));
+          diff -= minutes * (1000*60);
+          const seconds = Math.floor(diff / 1000);
+
+          function pad(n){ return String(n).padStart(2,'0'); }
+
+          const svg = `
+          <svg width="400" height="140" xmlns="http://www.w3.org/2000/svg">
+            <rect width="100%" height="100%" fill="#0d1117"/>
+            <text x="50%" y="25%" dominant-baseline="middle" text-anchor="middle" font-size="20" fill="#ff8800">
+              Countdown to ${nearest.name}
+            </text>
+            <text x="50%" y="45%" dominant-baseline="middle" text-anchor="middle" font-size="14" fill="#cccccc">
+              ${nearest.date.toDateString()}
+            </text>
+            <text x="50%" y="75%" dominant-baseline="middle" text-anchor="middle" font-size="28" fill="#ffffff">
+              ${days}d ${pad(hours)}h ${pad(minutes)}m ${pad(seconds)}s
+            </text>
+          </svg>
+          `;
+
+          fs.writeFileSync('dist/countdown.svg', svg.trim());
+          EOF
+
+      - name: Push countdown to output branch
+        uses: crazy-max/ghaction-github-pages@v3.1.0
+        with:
+          target_branch: output
+          build_dir: dist
+          commit_message: Update countdown
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
