@@ -12,7 +12,7 @@ jobs:
       - uses: actions/checkout@v3
       - name: Generate countdown SVG
         run: |
-          mkdir -p dist
+          mkdir -p dist/countdown
           node - <<'EOF'
           const fs = require('fs');
           const now = new Date();
